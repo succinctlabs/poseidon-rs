@@ -1,6 +1,8 @@
 extern crate rand;
 #[macro_use]
 extern crate ff;
+use std::sync::Mutex;
+
 use ff::*;
 
 #[derive(PrimeField)]
@@ -10,25 +12,28 @@ pub struct Fr(FrRepr);
 
 mod constants;
 
-#[derive(Debug)]
-pub struct Constants {
-    pub c: Vec<Vec<Fr>>,
-    pub m: Vec<Vec<Vec<Fr>>>,
-    pub n_rounds_f: usize,
-    pub n_rounds_p: Vec<usize>,
-}
-pub fn load_constants() -> Constants {
-    let (c_str, m_str) = constants::constants();
-    let mut c: Vec<Vec<Fr>> = Vec::new();
+use once_cell::sync::OnceCell;
+
+fn global_c(c_str: Vec<Vec<&str>>) -> &'static Mutex<Vec<Vec<Fr>>> {
+    static c: OnceCell<Mutex<Vec<Vec<Fr>>>> = OnceCell::new();
+    let mut tmp_c: Vec<Vec<Fr>> = Vec::new();
     for i in 0..c_str.len() {
         let mut cci: Vec<Fr> = Vec::new();
         for j in 0..c_str[i].len() {
             let b: Fr = Fr::from_str(c_str[i][j]).unwrap();
             cci.push(b);
         }
-        c.push(cci);
+        tmp_c.push(cci);
     }
-    let mut m: Vec<Vec<Vec<Fr>>> = Vec::new();
+
+    c.get_or_init(||
+        Mutex::new(tmp_c)
+    )
+}
+
+fn global_m(m_str: Vec<Vec<Vec<&str>>>) -> &'static Mutex<Vec<Vec<Vec<Fr>>>> {
+    static m: OnceCell<Mutex<Vec<Vec<Vec<Fr>>>>> = OnceCell::new();
+    let mut tmp_m: Vec<Vec<Vec<Fr>>> = Vec::new();
     for i in 0..m_str.len() {
         let mut mi: Vec<Vec<Fr>> = Vec::new();
         for j in 0..m_str[i].len() {
@@ -39,8 +44,25 @@ pub fn load_constants() -> Constants {
             }
             mi.push(mij);
         }
-        m.push(mi);
+        tmp_m.push(mi);
     }
+    m.get_or_init(||
+        Mutex::new(tmp_m)
+    )
+}
+
+
+#[derive(Debug)]
+pub struct Constants {
+    pub n_rounds_f: usize,
+    pub n_rounds_p: Vec<usize>,
+    pub c: Vec<Vec<Fr>>,
+    pub m: Vec<Vec<Vec<Fr>>>,
+}
+pub fn load_constants() -> Constants {
+    let (c_str, m_str) = constants::constants();
+    let c = global_c(c_str).lock().unwrap().clone();
+    let m = global_m(m_str).lock().unwrap().clone();
     Constants {
         c,
         m,
