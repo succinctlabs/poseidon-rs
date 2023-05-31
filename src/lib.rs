@@ -95,7 +95,7 @@ impl Poseidon {
         new_state.clone()
     }
 
-    pub fn hash(&self, inp: Vec<Fr>) -> Result<Fr, String> {
+    pub fn hash(&self, inp: Vec<Fr>) -> Result<Vec<Fr>, String> {
         let t = inp.len() + 1;
         // if inp.len() == 0 || inp.len() >= self.constants.n_rounds_p.len() - 1 {
         if inp.is_empty() || inp.len() > self.constants.n_rounds_p.len() {
@@ -113,7 +113,7 @@ impl Poseidon {
             state = self.mix(&state, &self.constants.m[t - 2]);
         }
 
-        Ok(state[0])
+        Ok(state)
     }
 }
 
